@@ -1,0 +1,13 @@
+# Python & Virtual Environments
+backend/venv/
+backend/__pycache__/
+*.pyc
+*.env
+
+# Node & Frontend
+frontend/node_modules/
+frontend/dist/
+
+# OS/Editor artifacts
+.DS_Store
+.vscode/
