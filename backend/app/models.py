@@ -50,3 +50,35 @@ class Course(Base):
     # Relationships
     instructor = relationship("User", back_populates="courses")
     category = relationship("Category", back_populates="courses")
+    # Add this inside the Course model class:
+    sections = relationship("Section", back_populates="course", cascade="all, delete-orphan")
+
+class Section(Base):
+  __tablename__ = "sections"
+
+  id = Column(Integer, primary_key=True, index=True)
+  title = Column(String(255), nullable=False)
+  order = Column(Integer, default=1, nullable=False)
+  course_id = Column(Integer, ForeignKey("courses.id"), nullable=False)
+
+  # Relationships
+  course = relationship("Course", back_populates="sections")
+  lessons = relationship(
+      "Lesson", back_populates="section", cascade="all, delete-orphan"
+  )
+
+
+class Lesson(Base):
+  __tablename__ = "lessons"
+
+  id = Column(Integer, primary_key=True, index=True)
+  title = Column(String(255), nullable=False)
+  video_url = Column(String(500), nullable=True)
+  content = Column(Text, nullable=True)
+  duration_minutes = Column(Integer, default=0)
+  order = Column(Integer, default=1, nullable=False)
+  is_free_preview = Column(Boolean, default=False)
+  section_id = Column(Integer, ForeignKey("sections.id"), nullable=False)
+
+  # Relationships
+  section = relationship("Section", back_populates="lessons")

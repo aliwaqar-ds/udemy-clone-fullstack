@@ -87,3 +87,42 @@ class CourseResponse(CourseBase):
   class Config:
     from_attributes = True
 
+# --- Lesson Schemas ---
+class LessonBase(BaseModel):
+  title: str = Field(..., min_length=2, max_length=255)
+  video_url: Optional[str] = None
+  content: Optional[str] = None
+  duration_minutes: int = Field(default=0, ge=0)
+  order: int = Field(default=1, ge=1)
+  is_free_preview: bool = False
+
+
+class LessonCreate(LessonBase):
+  section_id: int
+
+
+class LessonResponse(LessonBase):
+  id: int
+  section_id: int
+
+  class Config:
+    from_attributes = True
+
+
+# --- Section Schemas ---
+class SectionBase(BaseModel):
+  title: str = Field(..., min_length=2, max_length=255)
+  order: int = Field(default=1, ge=1)
+
+
+class SectionCreate(SectionBase):
+  course_id: int
+
+
+class SectionResponse(SectionBase):
+  id: int
+  course_id: int
+  lessons: list[LessonResponse] = []
+
+  class Config:
+    from_attributes = True

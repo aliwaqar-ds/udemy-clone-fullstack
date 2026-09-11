@@ -251,3 +251,112 @@ def list_published_courses(db: Session = Depends(get_db)):
   return (
       db.query(models.Course).filter(models.Course.is_published == True).all()
   )
+
+# --- Section Endpoints ---
+
+
+@app.post(
+    "/api/v1/sections",
+    response_model=schemas.SectionResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_section(
+    section_in: schemas.SectionCreate,
+    current_user: models.User = Depends(require_instructor),
+    db: Session = Depends(get_db),
+):
+  # Check if course exists and belongs to instructor
+  course = (
+      db.query(models.Course)
+      .filter(models.Course.id == section_in.course_id)
+      .first()
+  )
+  if not course:
+    raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND, detail="Course not found."
+    )
+
+  if (
+      course.instructor_id != current_user.id
+      and current_user.role != "admin"
+  ):
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="You can only add sections to your own courses.",
+    )
+
+  new_section = models.Section(**section_in.model_dump())
+  db.add(new_section)
+  db.commit()
+  db.refresh(new_section)
+  return new_section
+
+
+# --- Lesson Endpoints ---
+
+
+@app.post(
+    "/api/v1/lessons",
+    response_model=schemas.LessonResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_lesson(
+    lesson_in: schemas.LessonCreate,
+    current_user: models.User = Depends(require_instructor),
+    db: Session = Depends(get_db),
+):
+  # Verify section and course ownership
+  section = (
+      db.query(models.Section)
+      .filter(models.Section.id == lesson_in.section_id)
+      .first()
+  )
+  if not section:
+    raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND, detail="Section not found."
+    )
+
+  course = (
+      db.query(models.Course)
+      .filter(models.Course.id == section.course_id)
+      .first()
+  )
+  if (
+      course.instructor_id != current_user.id
+      and current_user.role != "admin"
+  ):
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="You can only add lessons to your own sections.",
+    )
+
+  new_lesson = models.Lesson(**lesson_in.model_dump())
+  db.add(new_lesson)
+  db.commit()
+  db.refresh(new_lesson)
+  return new_lesson
+
+
+# --- Get Full Course Curriculum Route ---
+
+
+@app.get(
+    "/api/v1/courses/{course_id}/curriculum",
+    response_model=list[schemas.SectionResponse],
+)
+def get_course_curriculum(course_id: int, db: Session = Depends(get_db)):
+  course = (
+      db.query(models.Course).filter(models.Course.id == course_id).first()
+  )
+  if not course:
+    raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND, detail="Course not found."
+    )
+
+  sections = (
+      db.query(models.Section)
+      .filter(models.Section.course_id == course_id)
+      .order_by(models.Section.order.asc())
+      .all()
+  )
+  return sections
