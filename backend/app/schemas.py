@@ -46,4 +46,44 @@ class Token(BaseModel):
 class TokenData(BaseModel):
   email: Optional[str] = None
   role: Optional[str] = None
-  
+
+# --- Category Schemas ---
+class CategoryBase(BaseModel):
+  name: str = Field(..., min_length=2, max_length=100)
+  slug: str = Field(..., min_length=2, max_length=100)
+
+
+class CategoryCreate(CategoryBase):
+  pass
+
+
+class CategoryResponse(CategoryBase):
+  id: int
+
+  class Config:
+    from_attributes = True
+
+
+# --- Course Schemas ---
+class CourseBase(BaseModel):
+  title: str = Field(..., min_length=3, max_length=255)
+  slug: str = Field(..., min_length=3, max_length=255)
+  description: Optional[str] = None
+  price: float = Field(default=0.0, ge=0.0)
+  category_id: Optional[int] = None
+
+
+class CourseCreate(CourseBase):
+  is_published: Optional[bool] = False
+
+
+class CourseResponse(CourseBase):
+  id: int
+  is_published: bool
+  instructor_id: int
+  created_at: datetime
+  updated_at: datetime
+
+  class Config:
+    from_attributes = True
+

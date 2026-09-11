@@ -53,6 +53,18 @@ def get_current_user(
         raise credentials_exception
     return user
 
+# RBAC: Require Instructor or Admin Role
+def require_instructor(current_user: models.User = Depends(get_current_user)):
+  if current_user.role not in ["instructor", "admin"]:
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail=(
+            "Access forbidden. Only instructors or admins can perform this"
+            " action."
+        ),
+    )
+  return current_user
+
 
 @app.get("/")
 def read_root():
@@ -161,3 +173,81 @@ def login(payload: schemas.UserLogin, db: Session = Depends(get_db)):
 @app.get("/api/v1/auth/me", response_model=schemas.UserResponse)
 def get_me(current_user: models.User = Depends(get_current_user)):
     return current_user
+
+# --- Category Endpoints ---
+
+
+@app.post(
+    "/api/v1/categories",
+    response_model=schemas.CategoryResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_category(
+    category_in: schemas.CategoryCreate,
+    current_user: models.User = Depends(require_instructor),
+    db: Session = Depends(get_db),
+):
+  existing_cat = (
+      db.query(models.Category)
+      .filter(
+          (models.Category.name == category_in.name)
+          | (models.Category.slug == category_in.slug)
+      )
+      .first()
+  )
+  if existing_cat:
+    raise HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail="Category name or slug already exists.",
+    )
+
+  new_cat = models.Category(**category_in.model_dump())
+  db.add(new_cat)
+  db.commit()
+  db.refresh(new_cat)
+  return new_cat
+
+
+@app.get("/api/v1/categories", response_model=list[schemas.CategoryResponse])
+def list_categories(db: Session = Depends(get_db)):
+  return db.query(models.Category).all()
+
+
+# --- Course Endpoints ---
+
+
+@app.post(
+    "/api/v1/courses",
+    response_model=schemas.CourseResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_course(
+    course_in: schemas.CourseCreate,
+    current_user: models.User = Depends(require_instructor),
+    db: Session = Depends(get_db),
+):
+  existing_course = (
+      db.query(models.Course)
+      .filter(models.Course.slug == course_in.slug)
+      .first()
+  )
+  if existing_course:
+    raise HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail="Course slug already exists.",
+    )
+
+  new_course = models.Course(
+      **course_in.model_dump(), instructor_id=current_user.id
+  )
+  db.add(new_course)
+  db.commit()
+  db.refresh(new_course)
+  return new_course
+
+
+@app.get("/api/v1/courses", response_model=list[schemas.CourseResponse])
+def list_published_courses(db: Session = Depends(get_db)):
+  return (
+      db.query(models.Course).filter(models.Course.is_published == True).all()
+  )
