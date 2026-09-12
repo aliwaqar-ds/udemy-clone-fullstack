@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+from fastapi.staticfiles import StaticFiles
 import os
 import sys
 
@@ -26,6 +27,12 @@ from app.utils import (
 models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Udemy Clone API")
+# Ensure uploads directory exists
+os.makedirs("uploads/images", exist_ok=True)
+os.makedirs("uploads/videos", exist_ok=True)
+
+# Mount static directory for serving uploads
+app.mount("/static", StaticFiles(directory="uploads"), name="static")
 security = HTTPBearer()
 
 
@@ -500,3 +507,166 @@ def get_course_progress(
       "completed_lessons": completed_count,
       "progress_percentage": percentage,
   }
+
+import uuid
+from fastapi import File, UploadFile
+
+# Allowed file extensions
+ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"]
+ALLOWED_VIDEO_TYPES = ["video/mp4", "video/mkv", "video/webm"]
+
+
+@app.post("/api/v1/upload/image")
+async def upload_image(
+    file: UploadFile = File(...),
+    current_user: models.User = Depends(require_instructor),
+):
+  if file.content_type not in ALLOWED_IMAGE_TYPES:
+    raise HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail=(
+            "Invalid image format. Allowed formats: JPEG, PNG, WebP."
+        ),
+    )
+
+  file_extension = os.path.splitext(file.filename)[1]
+  unique_filename = f"{uuid.uuid4()}{file_extension}"
+  file_path = os.path.join("uploads/images", unique_filename)
+
+  with open(file_path, "wb") as buffer:
+    buffer.write(await file.read())
+
+  return {
+      "filename": unique_filename,
+      "url": f"http://127.0.0.1:8000/static/images/{unique_filename}",
+  }
+
+
+@app.post("/api/v1/upload/video")
+async def upload_video(
+    file: UploadFile = File(...),
+    current_user: models.User = Depends(require_instructor),
+):
+  if file.content_type not in ALLOWED_VIDEO_TYPES:
+    raise HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail="Invalid video format. Allowed formats: MP4, MKV, WebM.",
+    )
+
+  file_extension = os.path.splitext(file.filename)[1]
+  unique_filename = f"{uuid.uuid4()}{file_extension}"
+  file_path = os.path.join("uploads/videos", unique_filename)
+
+  with open(file_path, "wb") as buffer:
+    buffer.write(await file.read())
+
+  return {
+      "filename": unique_filename,
+      "url": f"http://127.0.0.1:8000/static/videos/{unique_filename}",
+  }
+
+import stripe
+
+stripe.api_key = os.getenv("STRIPE_SECRET_KEY", "sk_test_mock_key")
+
+
+@app.post("/api/v1/payments/create-checkout-session/{course_id}")
+def create_checkout_session(
+    course_id: int,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+  course = (
+      db.query(models.Course).filter(models.Course.id == course_id).first()
+  )
+  if not course:
+    raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND, detail="Course not found."
+    )
+
+  # Check if already enrolled
+  existing_enrollment = (
+      db.query(models.Enrollment)
+      .filter(
+          models.Enrollment.user_id == current_user.id,
+          models.Enrollment.course_id == course_id,
+      )
+      .first()
+  )
+  if existing_enrollment:
+    raise HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail="You are already enrolled in this course.",
+    )
+
+  try:
+    checkout_session = stripe.checkout.Session.create(
+        payment_method_types=["card"],
+        line_items=[{
+            "price_data": {
+                "currency": "usd",
+                "product_data": {
+                    "name": course.title,
+                    "description": course.description or "Course Access",
+                },
+                "unit_amount": int(course.price * 100),  # Amount in cents
+            },
+            "quantity": 1,
+        }],
+        mode="payment",
+        success_url=(
+            "http://localhost:3000/payment-success?session_id={CHECKOUT_SESSION_ID}"
+        ),
+        cancel_url="http://localhost:3000/payment-cancelled",
+        metadata={
+            "user_id": str(current_user.id),
+            "course_id": str(course.id),
+        },
+    )
+    return {"checkout_url": checkout_session.url}
+  except Exception as e:
+    raise HTTPException(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+    )
+
+from fastapi import Request
+
+
+@app.post("/api/v1/payments/webhook")
+async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
+  payload = await request.body()
+  sig_header = request.headers.get("stripe-signature")
+  endpoint_secret = os.getenv("STRIPE_WEBHOOK_SECRET", "")
+
+  try:
+    event = stripe.Webhook.construct_event(payload, sig_header, endpoint_secret)
+  except ValueError:
+    raise HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid payload."
+    )
+  except stripe.error.SignatureVerificationError:
+    raise HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid signature."
+    )
+
+  # Handle checkout completion
+  if event["type"] == "checkout.session.completed":
+    session = event["data"]["object"]
+    user_id = int(session["metadata"]["user_id"])
+    course_id = int(session["metadata"]["course_id"])
+
+    # Auto-enroll student upon payment confirmation
+    existing = (
+        db.query(models.Enrollment)
+        .filter(
+            models.Enrollment.user_id == user_id,
+            models.Enrollment.course_id == course_id,
+        )
+        .first()
+    )
+    if not existing:
+      new_enrollment = models.Enrollment(user_id=user_id, course_id=course_id)
+      db.add(new_enrollment)
+      db.commit()
+
+  return {"status": "success"}
