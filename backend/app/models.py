@@ -82,3 +82,30 @@ class Lesson(Base):
 
   # Relationships
   section = relationship("Section", back_populates="lessons")
+
+class Enrollment(Base):
+  __tablename__ = "enrollments"
+
+  id = Column(Integer, primary_key=True, index=True)
+  user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+  course_id = Column(Integer, ForeignKey("courses.id"), nullable=False)
+  enrolled_at = Column(DateTime, default=datetime.utcnow)
+
+  # Relationships
+  user = relationship("User", backref="enrollments")
+  course = relationship("Course", backref="enrollments")
+
+
+class LessonProgress(Base):
+  __tablename__ = "lesson_progress"
+
+  id = Column(Integer, primary_key=True, index=True)
+  user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+  lesson_id = Column(Integer, ForeignKey("lessons.id"), nullable=False)
+  is_completed = Column(Boolean, default=True)
+  completed_at = Column(DateTime, default=datetime.utcnow)
+
+  # Relationships
+  user = relationship("User", backref="progress_records")
+  lesson = relationship("Lesson", backref="progress_records")
+

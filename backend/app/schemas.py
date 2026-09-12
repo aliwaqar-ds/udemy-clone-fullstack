@@ -126,3 +126,30 @@ class SectionResponse(SectionBase):
 
   class Config:
     from_attributes = True
+
+# --- Enrollment Schemas ---
+class EnrollmentCreate(BaseModel):
+  course_id: int
+
+
+class EnrollmentResponse(BaseModel):
+  id: int
+  user_id: int
+  course_id: int
+  enrolled_at: datetime
+
+  class Config:
+    from_attributes = True
+
+
+# --- Progress Schemas ---
+class ProgressToggleResponse(BaseModel):
+  lesson_id: int
+  is_completed: bool
+
+
+class CourseProgressResponse(BaseModel):
+  course_id: int
+  total_lessons: int
+  completed_lessons: int
+  progress_percentage: float

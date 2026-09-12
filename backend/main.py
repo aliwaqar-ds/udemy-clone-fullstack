@@ -360,3 +360,143 @@ def get_course_curriculum(course_id: int, db: Session = Depends(get_db)):
       .all()
   )
   return sections
+
+# --- Enrollment & Progress Endpoints ---
+
+
+@app.post(
+    "/api/v1/enrollments",
+    response_model=schemas.EnrollmentResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def enroll_in_course(
+    enrollment_in: schemas.EnrollmentCreate,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+  # Check if course exists
+  course = (
+      db.query(models.Course)
+      .filter(models.Course.id == enrollment_in.course_id)
+      .first()
+  )
+  if not course:
+    raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND, detail="Course not found."
+    )
+
+  # Check if already enrolled
+  existing_enrollment = (
+      db.query(models.Enrollment)
+      .filter(
+          models.Enrollment.user_id == current_user.id,
+          models.Enrollment.course_id == enrollment_in.course_id,
+      )
+      .first()
+  )
+  if existing_enrollment:
+    raise HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail="Already enrolled in this course.",
+    )
+
+  new_enrollment = models.Enrollment(
+      user_id=current_user.id, course_id=enrollment_in.course_id
+  )
+  db.add(new_enrollment)
+  db.commit()
+  db.refresh(new_enrollment)
+  return new_enrollment
+
+
+@app.post(
+    "/api/v1/lessons/{lesson_id}/toggle-complete",
+    response_model=schemas.ProgressToggleResponse,
+)
+def toggle_lesson_completion(
+    lesson_id: int,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+  lesson = db.query(models.Lesson).filter(models.Lesson.id == lesson_id).first()
+  if not lesson:
+    raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND, detail="Lesson not found."
+    )
+
+  progress = (
+      db.query(models.LessonProgress)
+      .filter(
+          models.LessonProgress.user_id == current_user.id,
+          models.LessonProgress.lesson_id == lesson_id,
+      )
+      .first()
+  )
+
+  if progress:
+    progress.is_completed = not progress.is_completed
+    db.commit()
+    db.refresh(progress)
+    return {
+        "lesson_id": lesson_id,
+        "is_completed": progress.is_completed,
+    }
+
+  new_progress = models.LessonProgress(
+      user_id=current_user.id, lesson_id=lesson_id, is_completed=True
+  )
+  db.add(new_progress)
+  db.commit()
+  return {"lesson_id": lesson_id, "is_completed": True}
+
+
+@app.get(
+    "/api/v1/courses/{course_id}/progress",
+    response_model=schemas.CourseProgressResponse,
+)
+def get_course_progress(
+    course_id: int,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+  # Get all lesson IDs for this course across all sections
+  sections = (
+      db.query(models.Section)
+      .filter(models.Section.course_id == course_id)
+      .all()
+  )
+  section_ids = [s.id for s in sections]
+
+  lessons = (
+      db.query(models.Lesson)
+      .filter(models.Lesson.section_id.in_(section_ids))
+      .all()
+  )
+  total_lessons = len(lessons)
+
+  if total_lessons == 0:
+    return {
+        "course_id": course_id,
+        "total_lessons": 0,
+        "completed_lessons": 0,
+        "progress_percentage": 0.0,
+    }
+
+  lesson_ids = [l.id for l in lessons]
+  completed_count = (
+      db.query(models.LessonProgress)
+      .filter(
+          models.LessonProgress.user_id == current_user.id,
+          models.LessonProgress.lesson_id.in_(lesson_ids),
+          models.LessonProgress.is_completed == True,
+      )
+      .count()
+  )
+
+  percentage = round((completed_count / total_lessons) * 100, 2)
+  return {
+      "course_id": course_id,
+      "total_lessons": total_lessons,
+      "completed_lessons": completed_count,
+      "progress_percentage": percentage,
+  }
