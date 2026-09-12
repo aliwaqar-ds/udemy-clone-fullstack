@@ -1,0 +1,74 @@
+.navbar {
+  background-color: var(--card-bg);
+  box-shadow: var(--shadow-sm);
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  padding: 0 1.5rem;
+}
+
+.navbar-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  max-width: 1200px;
+  height: 64px;
+  margin: 0 auto;
+}
+
+.navbar-logo {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: var(--primary-color);
+}
+
+.navbar-links {
+  display: flex;
+  align-items: center;
+  list-style: none;
+  gap: 1.5rem;
+}
+
+.navbar-links a {
+  font-weight: 500;
+  color: var(--text-primary);
+  transition: color 0.2s ease;
+}
+
+.navbar-links a:hover {
+  color: var(--primary-color);
+}
+
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.btn-login {
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--text-primary);
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+}
+
+.btn-signup {
+  padding: 0.5rem 1rem;
+  background-color: var(--dark-bg);
+  color: #fff !important;
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+}
+
+.btn-logout {
+  padding: 0.4rem 0.8rem;
+  background-color: transparent;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: 0.9rem;
+}
+
+.btn-logout:hover {
+  background-color: #f0f0f0;
+}
