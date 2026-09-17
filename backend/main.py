@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from app.database import Base, engine, get_db
 import app.models as models
-from app.routers import auth
+from app.routers import auth, courses
 
 # Create database tables automatically
 models.Base.metadata.create_all(bind=engine)
@@ -62,7 +62,7 @@ app.mount("/static", StaticFiles(directory="uploads"), name="static")
 
 # INCLUDE ROUTERS
 app.include_router(auth.router)
-
+app.include_router(courses.router)
 
 @app.get("/")
 def read_root():
