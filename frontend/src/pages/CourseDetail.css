@@ -1,0 +1,96 @@
+.course-detail-container {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem;
+}
+
+.course-header {
+  background-color: var(--dark-bg);
+  color: #fff;
+  padding: 2.5rem;
+  border-radius: var(--radius-md);
+  margin-bottom: 2rem;
+}
+
+.course-header h1 {
+  font-size: 2.2rem;
+  margin-bottom: 0.8rem;
+}
+
+.course-header p {
+  color: #ccc;
+  font-size: 1.1rem;
+}
+
+.course-content-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 2rem;
+}
+
+.section-block {
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 1rem 1.2rem;
+  margin-bottom: 1rem;
+  background-color: var(--card-bg);
+}
+
+.section-block h3 {
+  font-size: 1.1rem;
+  margin-bottom: 0.5rem;
+}
+
+.section-block ul {
+  list-style: disc;
+  padding-left: 1.5rem;
+}
+
+.section-block li {
+  margin-bottom: 0.3rem;
+  color: var(--text-primary);
+}
+
+.sidebar-card {
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 1.5rem;
+  background-color: var(--card-bg);
+  height: fit-content;
+}
+
+.price-tag {
+  font-size: 2rem;
+  font-weight: bold;
+  margin-bottom: 1.2rem;
+}
+
+.btn-enroll {
+  width: 100%;
+  padding: 0.8rem;
+  background-color: var(--primary-color);
+  color: #fff;
+  font-weight: bold;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.btn-enroll:hover {
+  background-color: var(--primary-hover);
+}
+
+.enroll-message {
+  padding: 0.6rem;
+  margin-bottom: 1rem;
+  background-color: #e0f2fe;
+  color: #0369a1;
+  border-radius: var(--radius-sm);
+  font-size: 0.9rem;
+}
+
+.detail-loading,
+.detail-error {
+  padding: 3rem;
+  text-align: center;
+}

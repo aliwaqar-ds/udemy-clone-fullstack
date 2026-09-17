@@ -10,6 +10,7 @@ from fastapi import Depends, FastAPI, HTTPException, Security, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
 from sqlalchemy.orm import Session
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.database import Base, engine, get_db
 import app.models as models
@@ -26,7 +27,37 @@ from app.utils import (
 # Create database tables automatically
 models.Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="Udemy Clone API")
+from contextlib import asynccontextmanager
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Seed default categories if missing
+    db: Session = next(get_db())
+    categories_data = [
+        {"id": 1, "name": "Web Development", "slug": "web-development"},
+        {"id": 2, "name": "Data Science & ML", "slug": "data-science-ml"},
+        {"id": 3, "name": "Mobile Development", "slug": "mobile-development"},
+        {"id": 4, "name": "Programming Languages", "slug": "programming-languages"},
+        {"id": 5, "name": "Database & SQL", "slug": "database-sql"},
+        {"id": 6, "name": "Design & UI/UX", "slug": "design-ui-ux"},
+    ]
+    for cat in categories_data:
+        existing_cat = db.query(models.Category).filter(models.Category.id == cat["id"]).first()
+        if not existing_cat:
+            db.add(models.Category(**cat))
+    db.commit()
+    db.close()
+    yield
+
+# Update your FastAPI instantiation line to pass lifespan:
+app = FastAPI(title="Udemy Clone API", lifespan=lifespan)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 # Ensure uploads directory exists
 os.makedirs("uploads/images", exist_ok=True)
 os.makedirs("uploads/videos", exist_ok=True)
@@ -259,6 +290,68 @@ def list_published_courses(db: Session = Depends(get_db)):
       db.query(models.Course).filter(models.Course.is_published == True).all()
   )
 
+@app.get(
+    "/api/v1/instructor/courses",
+    response_model=list[schemas.CourseResponse],
+)
+def list_instructor_courses(
+    current_user: models.User = Depends(require_instructor),
+    db: Session = Depends(get_db),
+):
+    """Fetch all courses created by the currently logged-in instructor."""
+    return (
+        db.query(models.Course)
+        .filter(models.Course.instructor_id == current_user.id)
+        .all()
+    )
+
+@app.get(
+    "/api/v1/courses/{course_id}",
+    response_model=schemas.CourseResponse,
+)
+def get_course(course_id: int, db: Session = Depends(get_db)):
+    course = (
+        db.query(models.Course)
+        .filter(models.Course.id == course_id, models.Course.is_published == True)
+        .first()
+    )
+    if not course:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Course not found.",
+        )
+    return course
+
+@app.patch(
+    "/api/v1/courses/{course_id}/publish",
+    response_model=schemas.CourseResponse,
+)
+def toggle_publish_course(
+    course_id: int,
+    current_user: models.User = Depends(require_instructor),
+    db: Session = Depends(get_db),
+):
+    course = (
+        db.query(models.Course)
+        .filter(models.Course.id == course_id)
+        .first()
+    )
+    if not course:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Course not found."
+        )
+
+    if course.instructor_id != current_user.id and current_user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only publish your own courses.",
+        )
+
+    course.is_published = not course.is_published
+    db.commit()
+    db.refresh(course)
+    return course
+
 # --- Section Endpoints ---
 
 
@@ -297,6 +390,33 @@ def create_section(
   db.commit()
   db.refresh(new_section)
   return new_section
+
+# --- Delete Section Route ---
+@app.delete(
+    "/api/v1/sections/{section_id}",
+    status_code=status.HTTP_200_OK,
+)
+def delete_section(
+    section_id: int,
+    current_user: models.User = Depends(require_instructor),
+    db: Session = Depends(get_db),
+):
+    section = db.query(models.Section).filter(models.Section.id == section_id).first()
+    if not section:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Section not found."
+        )
+
+    course = db.query(models.Course).filter(models.Course.id == section.course_id).first()
+    if course.instructor_id != current_user.id and current_user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only delete sections from your own courses.",
+        )
+
+    db.delete(section)
+    db.commit()
+    return {"message": "Section deleted successfully"}
 
 
 # --- Lesson Endpoints ---
@@ -342,6 +462,35 @@ def create_lesson(
   db.commit()
   db.refresh(new_lesson)
   return new_lesson
+
+
+# --- Delete Lesson Route ---
+@app.delete(
+    "/api/v1/lessons/{lesson_id}",
+    status_code=status.HTTP_200_OK,
+)
+def delete_lesson(
+    lesson_id: int,
+    current_user: models.User = Depends(require_instructor),
+    db: Session = Depends(get_db),
+):
+    lesson = db.query(models.Lesson).filter(models.Lesson.id == lesson_id).first()
+    if not lesson:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Lesson not found."
+        )
+
+    section = db.query(models.Section).filter(models.Section.id == lesson.section_id).first()
+    course = db.query(models.Course).filter(models.Course.id == section.course_id).first()
+    if course.instructor_id != current_user.id and current_user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only delete lessons from your own courses.",
+        )
+
+    db.delete(lesson)
+    db.commit()
+    return {"message": "Lesson deleted successfully"}
 
 
 # --- Get Full Course Curriculum Route ---
@@ -415,6 +564,29 @@ def enroll_in_course(
   db.refresh(new_enrollment)
   return new_enrollment
 
+@app.get(
+    "/api/v1/enrollments/me",
+    response_model=list[schemas.CourseResponse],
+)
+def get_my_enrolled_courses(
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    enrollments = (
+        db.query(models.Enrollment)
+        .filter(models.Enrollment.user_id == current_user.id)
+        .all()
+    )
+    course_ids = [e.course_id for e in enrollments]
+    if not course_ids:
+        return []
+    
+    courses = (
+        db.query(models.Course)
+        .filter(models.Course.id.in_(course_ids))
+        .all()
+    )
+    return courses
 
 @app.post(
     "/api/v1/lessons/{lesson_id}/toggle-complete",
@@ -576,97 +748,79 @@ def create_checkout_session(
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-  course = (
-      db.query(models.Course).filter(models.Course.id == course_id).first()
-  )
-  if not course:
-    raise HTTPException(
-        status_code=status.HTTP_404_NOT_FOUND, detail="Course not found."
-    )
+    course = db.query(models.Course).filter(models.Course.id == course_id).first()
+    if not course:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Course not found."
+        )
 
-  # Check if already enrolled
-  existing_enrollment = (
-      db.query(models.Enrollment)
-      .filter(
-          models.Enrollment.user_id == current_user.id,
-          models.Enrollment.course_id == course_id,
-      )
-      .first()
-  )
-  if existing_enrollment:
-    raise HTTPException(
-        status_code=status.HTTP_400_BAD_REQUEST,
-        detail="You are already enrolled in this course.",
-    )
-
-  try:
-    checkout_session = stripe.checkout.Session.create(
-        payment_method_types=["card"],
-        line_items=[{
-            "price_data": {
-                "currency": "usd",
-                "product_data": {
-                    "name": course.title,
-                    "description": course.description or "Course Access",
-                },
-                "unit_amount": int(course.price * 100),  # Amount in cents
-            },
-            "quantity": 1,
-        }],
-        mode="payment",
-        success_url=(
-            "http://localhost:3000/payment-success?session_id={CHECKOUT_SESSION_ID}"
-        ),
-        cancel_url="http://localhost:3000/payment-cancelled",
-        metadata={
-            "user_id": str(current_user.id),
-            "course_id": str(course.id),
-        },
-    )
-    return {"checkout_url": checkout_session.url}
-  except Exception as e:
-    raise HTTPException(
-        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-    )
-
-from fastapi import Request
-
-
-@app.post("/api/v1/payments/webhook")
-async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
-  payload = await request.body()
-  sig_header = request.headers.get("stripe-signature")
-  endpoint_secret = os.getenv("STRIPE_WEBHOOK_SECRET", "")
-
-  try:
-    event = stripe.Webhook.construct_event(payload, sig_header, endpoint_secret)
-  except ValueError:
-    raise HTTPException(
-        status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid payload."
-    )
-  except stripe.error.SignatureVerificationError:
-    raise HTTPException(
-        status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid signature."
-    )
-
-  # Handle checkout completion
-  if event["type"] == "checkout.session.completed":
-    session = event["data"]["object"]
-    user_id = int(session["metadata"]["user_id"])
-    course_id = int(session["metadata"]["course_id"])
-
-    # Auto-enroll student upon payment confirmation
-    existing = (
+    # Check if already enrolled
+    existing_enrollment = (
         db.query(models.Enrollment)
         .filter(
-            models.Enrollment.user_id == user_id,
+            models.Enrollment.user_id == current_user.id,
             models.Enrollment.course_id == course_id,
         )
         .first()
     )
-    if not existing:
-      new_enrollment = models.Enrollment(user_id=user_id, course_id=course_id)
-      db.add(new_enrollment)
-      db.commit()
+    if existing_enrollment:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="You are already enrolled in this course.",
+        )
 
-  return {"status": "success"}
+    # Auto-enroll student directly for testing (bypassing real Stripe redirect)
+    new_enrollment = models.Enrollment(user_id=current_user.id, course_id=course_id)
+    db.add(new_enrollment)
+    db.commit()
+
+    # Return frontend success page URL directly
+    return {"checkout_url": "http://localhost:5173/payment-success?session_id=mock_session_123"}
+
+# --- Review Endpoints ---
+
+@app.post("/api/v1/reviews", response_model=schemas.ReviewResponse, status_code=status.HTTP_201_CREATED)
+def create_review(
+    review_in: schemas.ReviewCreate,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    # Verify user enrollment
+    enrollment = db.query(models.Enrollment).filter(
+        models.Enrollment.user_id == current_user.id,
+        models.Enrollment.course_id == review_in.course_id
+    ).first()
+
+    if not enrollment:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only review courses you are enrolled in."
+        )
+
+    # Check for existing review
+    existing_review = db.query(models.Review).filter(
+        models.Review.user_id == current_user.id,
+        models.Review.course_id == review_in.course_id
+    ).first()
+
+    if existing_review:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="You have already reviewed this course."
+        )
+
+    new_review = models.Review(
+        user_id=current_user.id,
+        course_id=review_in.course_id,
+        rating=review_in.rating,
+        comment=review_in.comment
+    )
+    db.add(new_review)
+    db.commit()
+    db.refresh(new_review)
+    return new_review
+
+
+@app.get("/api/v1/courses/{course_id}/reviews", response_model=list[schemas.ReviewResponse])
+def get_course_reviews(course_id: int, db: Session = Depends(get_db)):
+    return db.query(models.Review).filter(models.Review.course_id == course_id).all()

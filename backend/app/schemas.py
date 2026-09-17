@@ -71,7 +71,7 @@ class CourseBase(BaseModel):
   description: Optional[str] = None
   price: float = Field(default=0.0, ge=0.0)
   category_id: Optional[int] = None
-
+  thumbnail_url: Optional[str] = None
 
 class CourseCreate(CourseBase):
   is_published: Optional[bool] = False
@@ -153,3 +153,19 @@ class CourseProgressResponse(BaseModel):
   total_lessons: int
   completed_lessons: int
   progress_percentage: float
+
+class ReviewCreate(BaseModel):
+    course_id: int
+    rating: int = Field(..., ge=1, le=5)
+    comment: Optional[str] = None
+
+class ReviewResponse(BaseModel):
+    id: int
+    rating: int
+    comment: Optional[str]
+    created_at: datetime
+    user_id: int
+    course_id: int
+
+    class Config:
+        from_attributes = True

@@ -1,0 +1,41 @@
+.catalog-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem;
+}
+
+.hero-banner {
+  background-color: var(--dark-bg);
+  color: #fff;
+  padding: 3rem 2rem;
+  border-radius: var(--radius-md);
+  margin-bottom: 2.5rem;
+  text-align: center;
+}
+
+.hero-banner h1 {
+  font-size: 2.2rem;
+  margin-bottom: 0.5rem;
+}
+
+.hero-banner p {
+  color: var(--border-color);
+  font-size: 1.1rem;
+}
+
+.courses-section h2 {
+  font-size: 1.6rem;
+  margin-bottom: 1.5rem;
+}
+
+.courses-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 1.5rem;
+}
+
+.loading-text,
+.empty-text {
+  color: var(--text-muted);
+  font-size: 1rem;
+}

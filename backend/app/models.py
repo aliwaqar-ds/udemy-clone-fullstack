@@ -39,6 +39,7 @@ class Course(Base):
     slug = Column(String(255), unique=True, nullable=False)
     description = Column(Text, nullable=True)
     price = Column(Numeric(10, 2), default=0.00, nullable=False)
+    thumbnail_url = Column(String(500), nullable=True)
     is_published = Column(Boolean, default=False)
     
     instructor_id = Column(Integer, ForeignKey("users.id"), nullable=False)
@@ -109,3 +110,16 @@ class LessonProgress(Base):
   user = relationship("User", backref="progress_records")
   lesson = relationship("Lesson", backref="progress_records")
 
+class Review(Base):
+    __tablename__ = "reviews"
+
+    id = Column(Integer, primary_key=True, index=True)
+    rating = Column(Integer, nullable=False)  # 1 to 5
+    comment = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    course_id = Column(Integer, ForeignKey("courses.id", ondelete="CASCADE"), nullable=False)
+
+    user = relationship("User")
+    course = relationship("Course")

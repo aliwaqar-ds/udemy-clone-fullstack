@@ -8,7 +8,7 @@ export const AuthProvider = ({ children }) => {
   const [token, setToken] = useState(localStorage.getItem('token') || null);
   const [loading, setLoading] = useState(true);
 
-  // Auto-fetch user details on page refresh if token exists
+  // Restore user profile on app startup if a token exists
   useEffect(() => {
     const loadUser = async () => {
       if (token) {
@@ -16,12 +16,13 @@ export const AuthProvider = ({ children }) => {
           const profile = await fetchUserProfile();
           setUser(profile);
         } catch (error) {
-          console.error('Session expired or invalid token:', error);
+          console.error('Failed to load user profile:', error);
           logout();
         }
       }
       setLoading(false);
     };
+
     loadUser();
   }, [token]);
 

@@ -24,14 +24,16 @@ const Navbar = () => {
           </li>
           {user ? (
             <>
-              {user.role === 'instructor' && (
+              {/* Show Instructor Dashboard for Instructors/Admins, otherwise show My Learning for Students */}
+              {user.role === 'instructor' || user.role === 'admin' ? (
                 <li>
                   <Link to="/instructor">Instructor Dashboard</Link>
                 </li>
+              ) : (
+                <li>
+                  <Link to="/my-learning">My Learning</Link>
+                </li>
               )}
-              <li>
-                <Link to="/dashboard">My Learning</Link>
-              </li>
               <li className="user-info">
                 <span>Hi, {user.full_name || user.email}</span>
                 <button onClick={handleLogout} className="btn-logout">

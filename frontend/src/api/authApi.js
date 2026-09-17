@@ -1,12 +1,10 @@
 import API from './axios';
 
 export const loginUser = async (credentials) => {
-  const formData = new URLSearchParams();
-  formData.append('username', credentials.email);
-  formData.append('password', credentials.password);
-
-  const response = await API.post('/auth/login', formData, {
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+  // Pass credentials directly as a JSON object
+  const response = await API.post('/auth/login', {
+    email: credentials.email,
+    password: credentials.password,
   });
   return response.data;
 };
