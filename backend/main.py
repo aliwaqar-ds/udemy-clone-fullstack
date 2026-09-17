@@ -1,10 +1,10 @@
+from contextlib import asynccontextmanager
 import os
 import sys
 
 # Ensure backend directory is in Python path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from app.database import Base, engine, get_db
 import app.models as models
-from app.routers import auth, courses
+from app.routers import auth, courses, curriculum, services
 
 # Create database tables automatically
 models.Base.metadata.create_all(bind=engine)
@@ -63,6 +63,9 @@ app.mount("/static", StaticFiles(directory="uploads"), name="static")
 # INCLUDE ROUTERS
 app.include_router(auth.router)
 app.include_router(courses.router)
+app.include_router(curriculum.router)
+app.include_router(services.router)
+
 
 @app.get("/")
 def read_root():
