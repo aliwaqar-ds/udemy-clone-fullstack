@@ -120,12 +120,6 @@ export const fetchCourseReviews = async (courseId) => {
   return response.data;
 };
 
-export const saveLessonTimestamp = async (lessonId, lastWatchedSecond) => {
-  const response = await API.post(`/lessons/${lessonId}/timestamp`, {
-    last_watched_second: Math.floor(lastWatchedSecond),
-  });
-  return response.data;
-};
 
 export const fetchInstructorAnalytics = async () => {
   const response = await API.get('/instructor/analytics');

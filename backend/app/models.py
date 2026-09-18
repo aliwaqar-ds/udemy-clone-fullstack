@@ -104,7 +104,6 @@ class LessonProgress(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     lesson_id = Column(Integer, ForeignKey("lessons.id"), nullable=False)
     is_completed = Column(Boolean, default=True)
-    last_watched_second = Column(Integer, default=0, nullable=False)  # 👈 NEW FIELD
     completed_at = Column(DateTime, default=datetime.utcnow)
 
     # Relationships

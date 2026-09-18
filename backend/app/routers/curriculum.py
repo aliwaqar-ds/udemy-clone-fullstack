@@ -299,35 +299,6 @@ def get_course_progress(
         "progress_percentage": percentage,
     }
 
-@router.post("/lessons/{lesson_id}/timestamp")
-def update_lesson_timestamp(
-    lesson_id: int,
-    payload: schemas.UpdateTimestampRequest,
-    current_user: models.User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    progress = (
-        db.query(models.LessonProgress)
-        .filter(
-            models.LessonProgress.user_id == current_user.id,
-            models.LessonProgress.lesson_id == lesson_id,
-        )
-        .first()
-    )
-
-    if progress:
-        progress.last_watched_second = payload.last_watched_second
-    else:
-        progress = models.LessonProgress(
-            user_id=current_user.id,
-            lesson_id=lesson_id,
-            is_completed=False,
-            last_watched_second=payload.last_watched_second,
-        )
-        db.add(progress)
-
-    db.commit()
-    return {"message": "Timestamp updated", "last_watched_second": payload.last_watched_second}
 
 from datetime import datetime
 
