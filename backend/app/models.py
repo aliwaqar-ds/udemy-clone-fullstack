@@ -98,17 +98,18 @@ class Enrollment(Base):
 
 
 class LessonProgress(Base):
-  __tablename__ = "lesson_progress"
+    __tablename__ = "lesson_progress"
 
-  id = Column(Integer, primary_key=True, index=True)
-  user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-  lesson_id = Column(Integer, ForeignKey("lessons.id"), nullable=False)
-  is_completed = Column(Boolean, default=True)
-  completed_at = Column(DateTime, default=datetime.utcnow)
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    lesson_id = Column(Integer, ForeignKey("lessons.id"), nullable=False)
+    is_completed = Column(Boolean, default=True)
+    last_watched_second = Column(Integer, default=0, nullable=False)  # 👈 NEW FIELD
+    completed_at = Column(DateTime, default=datetime.utcnow)
 
-  # Relationships
-  user = relationship("User", backref="progress_records")
-  lesson = relationship("Lesson", backref="progress_records")
+    # Relationships
+    user = relationship("User", backref="progress_records")
+    lesson = relationship("Lesson", backref="progress_records")
 
 class Review(Base):
     __tablename__ = "reviews"

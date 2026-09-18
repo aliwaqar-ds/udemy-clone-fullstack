@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-
+from sqlalchemy import func
 from app.database import get_db
 import app.models as models
 import app.schemas as schemas
@@ -169,3 +169,81 @@ def toggle_publish_course(
     db.commit()
     db.refresh(course)
     return course
+
+
+@router.get("/instructor/analytics")
+def get_instructor_analytics(
+    current_user: models.User = Depends(require_instructor),
+    db: Session = Depends(get_db),
+):
+    # Fetch instructor's courses
+    instructor_courses = (
+        db.query(models.Course)
+        .filter(models.Course.instructor_id == current_user.id)
+        .all()
+    )
+    course_ids = [c.id for c in instructor_courses]
+
+    if not course_ids:
+        return {
+            "total_courses": 0,
+            "total_students": 0,
+            "total_revenue": 0.0,
+            "average_rating": 0.0,
+            "course_breakdown": [],
+        }
+
+    # Total enrollments
+    total_students = (
+        db.query(models.Enrollment)
+        .filter(models.Enrollment.course_id.in_(course_ids))
+        .count()
+    )
+
+    # Total estimated revenue
+    total_revenue = sum(
+        c.price
+        * db.query(models.Enrollment)
+        .filter(models.Enrollment.course_id == c.id)
+        .count()
+        for c in instructor_courses
+    )
+
+    # Average rating across all reviews
+    avg_rating = (
+        db.query(func.avg(models.Review.rating))
+        .filter(models.Review.course_id.in_(course_ids))
+        .scalar()
+        or 0.0
+    )
+
+    # Course specific metrics breakdown
+    breakdown = []
+    for course in instructor_courses:
+        students_count = (
+            db.query(models.Enrollment)
+            .filter(models.Enrollment.course_id == course.id)
+            .count()
+        )
+        c_avg_rating = (
+            db.query(func.avg(models.Review.rating))
+            .filter(models.Review.course_id == course.id)
+            .scalar()
+            or 0.0
+        )
+        breakdown.append({
+            "course_id": course.id,
+            "title": course.title,
+            "price": course.price,
+            "students": students_count,
+            "revenue": round(students_count * course.price, 2),
+            "average_rating": round(float(c_avg_rating), 1),
+        })
+
+    return {
+        "total_courses": len(instructor_courses),
+        "total_students": total_students,
+        "total_revenue": round(total_revenue, 2),
+        "average_rating": round(float(avg_rating), 1),
+        "course_breakdown": breakdown,
+    }

@@ -144,8 +144,12 @@ class EnrollmentResponse(BaseModel):
 
 # --- Progress Schemas ---
 class ProgressToggleResponse(BaseModel):
-  lesson_id: int
-  is_completed: bool
+    lesson_id: int
+    is_completed: bool
+    last_watched_second: int = 0
+
+class UpdateTimestampRequest(BaseModel):
+    last_watched_second: int
 
 
 class CourseProgressResponse(BaseModel):
@@ -169,3 +173,4 @@ class ReviewResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
