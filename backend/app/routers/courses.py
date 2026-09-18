@@ -5,6 +5,7 @@ from app.database import get_db
 import app.models as models
 import app.schemas as schemas
 from app.routers.auth import get_current_user
+from typing import Optional
 
 router = APIRouter(prefix="/api/v1", tags=["Courses & Categories"])
 
@@ -90,10 +91,20 @@ def create_course(
 
 
 @router.get("/courses", response_model=list[schemas.CourseResponse])
-def list_published_courses(db: Session = Depends(get_db)):
-    return (
-        db.query(models.Course).filter(models.Course.is_published == True).all()
-    )
+def list_published_courses(
+    search: Optional[str] = None,
+    category_id: Optional[int] = None,
+    db: Session = Depends(get_db),
+):
+    query = db.query(models.Course).filter(models.Course.is_published == True)
+
+    if search:
+        query = query.filter(models.Course.title.ilike(f"%{search}%"))
+
+    if category_id:
+        query = query.filter(models.Course.category_id == category_id)
+
+    return query.all()
 
 
 @router.get(

@@ -2,8 +2,12 @@ import API from './axios';
 
 // --- Public & Student Course Endpoints ---
 
-export const fetchCourses = async () => {
-  const response = await API.get('/courses');
+export const fetchCourses = async (search = '', categoryId = '') => {
+  const params = {};
+  if (search) params.search = search;
+  if (categoryId) params.category_id = categoryId;
+
+  const response = await API.get('/courses', { params });
   return response.data;
 };
 
