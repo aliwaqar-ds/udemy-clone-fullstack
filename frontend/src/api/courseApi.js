@@ -131,3 +131,8 @@ export const fetchInstructorAnalytics = async () => {
   const response = await API.get('/instructor/analytics');
   return response.data;
 };
+
+export const fetchCourseCertificate = async (courseId) => {
+  const response = await API.get(`/courses/${courseId}/certificate`);
+  return response.data;
+};

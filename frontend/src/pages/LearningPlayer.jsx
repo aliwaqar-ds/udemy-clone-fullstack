@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import {
   fetchCourseById,
@@ -6,7 +6,7 @@ import {
   fetchCourseCurriculum,
   fetchCourseProgress,
   toggleLessonCompletion,
-  saveLessonTimestamp,
+  fetchCourseCertificate,
 } from '../api/courseApi';
 import './LearningPlayer.css';
 
@@ -18,7 +18,11 @@ const LearningPlayer = () => {
   const [completedLessons, setCompletedLessons] = useState({});
   const [progress, setProgress] = useState(null);
   const [loading, setLoading] = useState(true);
-  const videoRef = useRef(null);
+
+  // Certificate Modal State
+  const [certificate, setCertificate] = useState(null);
+  const [certError, setCertError] = useState('');
+  const [showCertModal, setShowCertModal] = useState(false);
 
   useEffect(() => {
     const cleanId = Number(courseId);
@@ -35,9 +39,19 @@ const LearningPlayer = () => {
         ]);
 
         setCurriculum(sections || []);
-        if (progressData) setProgress(progressData);
 
-        // 🎯 Auto-select the very first lesson found in the curriculum
+        if (progressData) {
+          setProgress(progressData);
+          if (progressData.completed_lesson_ids) {
+            const initialMap = {};
+            progressData.completed_lesson_ids.forEach((id) => {
+              initialMap[id] = true;
+            });
+            setCompletedLessons(initialMap);
+          }
+        }
+
+        // Auto-select first lesson
         if (sections && sections.length > 0) {
           for (const sec of sections) {
             if (sec.lessons && sec.lessons.length > 0) {
@@ -65,26 +79,11 @@ const LearningPlayer = () => {
     loadPlayer();
   }, [courseId]);
 
-  // Save video timestamp every 5 seconds during playback
-  const handleTimeUpdate = () => {
-    if (videoRef.current && activeLesson) {
-      const currentTime = videoRef.current.currentTime;
-      if (Math.floor(currentTime) % 5 === 0 && currentTime > 0) {
-        saveLessonTimestamp(activeLesson.id, currentTime).catch(() => {});
-      }
-    }
-  };
-
-  // 🎯 Auto-seek video to last saved timestamp when metadata is loaded
-  const handleLoadedMetadata = () => {
-    if (videoRef.current && activeLesson?.last_watched_second) {
-      videoRef.current.currentTime = activeLesson.last_watched_second;
-    }
-  };
-
+  // Toggle lesson completion state
   const handleToggleLesson = async (lessonId) => {
     try {
       const result = await toggleLessonCompletion(lessonId);
+
       setCompletedLessons((prev) => ({
         ...prev,
         [lessonId]: result.is_completed,
@@ -97,11 +96,23 @@ const LearningPlayer = () => {
     }
   };
 
+  // Claim Certificate
+  const handleClaimCertificate = async () => {
+    setCertError('');
+    try {
+      const certData = await fetchCourseCertificate(Number(courseId));
+      setCertificate(certData);
+      setShowCertModal(true);
+    } catch (err) {
+      setCertError(err.response?.data?.detail || 'Failed to claim certificate.');
+    }
+  };
+
   if (loading) return <div className="player-loading">Loading classroom...</div>;
 
   return (
     <div className="player-container">
-      {/* LEFT CONTENT AREA */}
+      {/* MAIN VIEWPORT */}
       <div className="main-content">
         <div className="player-top-bar">
           <Link to="/my-learning" className="btn-back">
@@ -113,11 +124,8 @@ const LearningPlayer = () => {
         <div className="video-viewport">
           {activeLesson?.video_url && activeLesson.video_url !== 'string' ? (
             <video
-              ref={videoRef}
               src={activeLesson.video_url}
               controls
-              onTimeUpdate={handleTimeUpdate}
-              onLoadedMetadata={handleLoadedMetadata}
               className="video-frame"
               style={{ width: '100%', height: '100%' }}
             />
@@ -129,8 +137,8 @@ const LearningPlayer = () => {
         </div>
 
         <div className="lesson-details">
-          <h2>{activeLesson?.title || 'Lesson Overview'}</h2>
-          <p>{activeLesson?.content || 'Select a lesson from the sidebar to start watching.'}</p>
+          <h2>{activeLesson?.title || 'Course Overview'}</h2>
+          <p>{activeLesson?.content || 'Select a lesson from the curriculum sidebar to watch.'}</p>
           {activeLesson && (
             <button
               className={`btn-toggle-complete ${
@@ -144,7 +152,7 @@ const LearningPlayer = () => {
         </div>
       </div>
 
-      {/* RIGHT SIDEBAR */}
+      {/* CURRICULUM SIDEBAR */}
       <aside className="sidebar-curriculum">
         <div className="sidebar-header">
           <h3>Course Curriculum</h3>
@@ -160,6 +168,31 @@ const LearningPlayer = () => {
                   style={{ width: `${progress.progress_percentage}%` }}
                 />
               </div>
+
+              {/* Claim Certificate Button */}
+              {progress.progress_percentage === 100 && (
+                <button
+                  onClick={handleClaimCertificate}
+                  style={{
+                    marginTop: '0.8rem',
+                    width: '100%',
+                    padding: '0.6rem',
+                    backgroundColor: '#22c55e',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: '6px',
+                    fontWeight: 'bold',
+                    cursor: 'pointer',
+                  }}
+                >
+                  🎓 Claim Certificate
+                </button>
+              )}
+              {certError && (
+                <p style={{ color: '#ef4444', fontSize: '0.8rem', marginTop: '0.4rem' }}>
+                  {certError}
+                </p>
+              )}
             </div>
           )}
         </div>
@@ -203,6 +236,67 @@ const LearningPlayer = () => {
           )}
         </div>
       </aside>
+
+      {/* CERTIFICATE MODAL */}
+      {showCertModal && certificate && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.85)', display: 'flex',
+          justifyContent: 'center', alignItems: 'center', zIndex: 2000
+        }}>
+          <div style={{
+            backgroundColor: '#fff', color: '#1e293b', padding: '3rem',
+            borderRadius: '12px', border: '8px double #a435f0',
+            maxWidth: '650px', textAlign: 'center', position: 'relative'
+          }}>
+            <button
+              onClick={() => setShowCertModal(false)}
+              style={{ position: 'absolute', top: '15px', right: '15px', background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer' }}
+            >
+              ✕
+            </button>
+            <h1 style={{ color: '#a435f0', fontFamily: 'serif', marginBottom: '0.5rem' }}>
+              Certificate of Completion
+            </h1>
+            <p style={{ fontSize: '0.9rem', color: '#64748b' }}>This is to certify that</p>
+            <h2 style={{ fontSize: '2rem', margin: '0.8rem 0', color: '#0f172a' }}>
+              {certificate.student_name}
+            </h2>
+            <p style={{ fontSize: '0.95rem', color: '#64748b' }}>
+              has successfully completed the online course
+            </p>
+            <h3 style={{ fontSize: '1.4rem', color: '#1e293b', margin: '0.8rem 0' }}>
+              {certificate.course_title}
+            </h3>
+            <div style={{
+              marginTop: '2rem', display: 'flex', justifyContent: 'space-between',
+              borderTop: '1px solid #cbd5e1', paddingTop: '1rem',
+              fontSize: '0.85rem', color: '#64748b'
+            }}>
+              <div>
+                <strong>Instructor:</strong> {certificate.instructor_name}
+              </div>
+              <div>
+                <strong>Date:</strong> {certificate.issued_date}
+              </div>
+            </div>
+            <p style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '1rem' }}>
+              ID: {certificate.certificate_id}
+            </p>
+            <button
+              onClick={() => window.print()}
+              style={{
+                marginTop: '1.5rem', padding: '0.6rem 1.2rem',
+                backgroundColor: '#a435f0', color: '#fff',
+                border: 'none', borderRadius: '6px',
+                fontWeight: 'bold', cursor: 'pointer'
+              }}
+            >
+              🖨️ Print / Save as PDF
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

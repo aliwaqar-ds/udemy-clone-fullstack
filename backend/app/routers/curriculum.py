@@ -328,3 +328,71 @@ def update_lesson_timestamp(
 
     db.commit()
     return {"message": "Timestamp updated", "last_watched_second": payload.last_watched_second}
+
+from datetime import datetime
+
+@router.get("/courses/{course_id}/certificate")
+def get_course_certificate(
+    course_id: int,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    course = db.query(models.Course).filter(models.Course.id == course_id).first()
+    if not course:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Course not found."
+        )
+
+    # Verify student is enrolled
+    enrollment = (
+        db.query(models.Enrollment)
+        .filter(
+            models.Enrollment.user_id == current_user.id,
+            models.Enrollment.course_id == course_id,
+        )
+        .first()
+    )
+    if not enrollment:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You must be enrolled in this course to get a certificate.",
+        )
+
+    # Check progress
+    sections = db.query(models.Section).filter(models.Section.course_id == course_id).all()
+    section_ids = [s.id for s in sections]
+    lessons = db.query(models.Lesson).filter(models.Lesson.section_id.in_(section_ids)).all()
+    
+    total_lessons = len(lessons)
+    if total_lessons == 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Course has no lessons.",
+        )
+
+    lesson_ids = [l.id for l in lessons]
+    completed_count = (
+        db.query(models.LessonProgress)
+        .filter(
+            models.LessonProgress.user_id == current_user.id,
+            models.LessonProgress.lesson_id.in_(lesson_ids),
+            models.LessonProgress.is_completed == True,
+        )
+        .count()
+    )
+
+    if completed_count < total_lessons:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Course incomplete ({completed_count}/{total_lessons} lessons completed). Finish all lessons to unlock your certificate.",
+        )
+
+    instructor = db.query(models.User).filter(models.User.id == course.instructor_id).first()
+
+    return {
+        "certificate_id": f"CERT-{course_id}-{current_user.id}",
+        "student_name": current_user.full_name or current_user.email,
+        "course_title": course.title,
+        "instructor_name": instructor.full_name if instructor else "UdemyClone Instructor",
+        "issued_date": datetime.utcnow().strftime("%B %d, %Y"),
+    }

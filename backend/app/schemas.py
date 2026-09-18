@@ -146,7 +146,7 @@ class EnrollmentResponse(BaseModel):
 class ProgressToggleResponse(BaseModel):
     lesson_id: int
     is_completed: bool
-    last_watched_second: int = 0
+    last_watched_second: Optional[int] = 0
 
 class UpdateTimestampRequest(BaseModel):
     last_watched_second: int
