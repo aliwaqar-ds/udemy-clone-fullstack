@@ -1,20 +1,32 @@
-# backend/reset_db.py
-from app.database import SessionLocal, engine
-from app.models import Transaction, Payout, Review, Progress, Enrollment, Lesson, Section, Course, User
+# backend/app/reset_db.py
+from app.database import SessionLocal
+import app.models as models
 
 def reset_database():
     db = SessionLocal()
     try:
         print("🧹 Clearing database tables...")
-        db.query(Transaction).delete()
-        db.query(Payout).delete()
-        db.query(Review).delete()
-        db.query(Progress).delete()
-        db.query(Enrollment).delete()
-        db.query(Lesson).delete()
-        db.query(Section).delete()
-        db.query(Course).delete()
-        db.query(User).delete()
+        
+        # Deletion order to safely handle foreign keys
+        model_names = [
+            'Transaction', 
+            'Payout', 
+            'Review', 
+            'LessonProgress',
+            'UserProgress', 
+            'Progress', 
+            'Enrollment', 
+            'Lesson', 
+            'Section', 
+            'Course', 
+            'User'
+        ]
+        
+        for name in model_names:
+            if hasattr(models, name):
+                model_cls = getattr(models, name)
+                db.query(model_cls).delete()
+        
         db.commit()
         print("✅ Database successfully wiped!")
     except Exception as e:
