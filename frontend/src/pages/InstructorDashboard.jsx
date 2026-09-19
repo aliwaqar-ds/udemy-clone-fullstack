@@ -35,9 +35,18 @@ const InstructorDashboard = () => {
           <h1>Instructor Dashboard</h1>
           <p>Track earnings, student enrollments, and course management.</p>
         </div>
-        <Link to="/instructor/create-course" className="btn-create-course">
-          + Create New Course
-        </Link>
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <Link 
+            to="/instructor/financials" 
+            className="btn-create-course"
+            style={{ backgroundColor: '#2563eb', border: 'none' }}
+          >
+            💳 Financials & Payouts
+          </Link>
+          <Link to="/instructor/create-course" className="btn-create-course">
+            + Create New Course
+          </Link>
+        </div>
       </div>
 
       {/* 📊 Analytics Cards Grid */}

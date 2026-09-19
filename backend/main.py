@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from app.database import Base, engine, get_db
 import app.models as models
-from app.routers import auth, courses, curriculum, services
+from app.routers import auth, courses, curriculum, services, payments
 
 # Create database tables automatically
 models.Base.metadata.create_all(bind=engine)
@@ -71,6 +71,7 @@ app.include_router(auth.router)
 app.include_router(courses.router)
 app.include_router(curriculum.router)
 app.include_router(services.router)
+app.include_router(payments.router)
 
 
 @app.get("/")

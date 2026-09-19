@@ -12,7 +12,7 @@ class UserCreate(BaseModel):
     role: Optional[str] = "student"  # 'student' or 'instructor'
 
 
-# Public User Response Schema (Excludes password hash & OTP)
+# Public User Response Schema
 class UserResponse(BaseModel):
     id: int
     full_name: str
@@ -31,115 +31,120 @@ class OTPVerify(BaseModel):
     email: EmailStr
     otp_code: str = Field(..., min_length=6, max_length=6)
 
+
 # Login Request Schema
 class UserLogin(BaseModel):
-  email: EmailStr
-  password: str
+    email: EmailStr
+    password: str
 
 
 # Token Response Schema
 class Token(BaseModel):
-  access_token: str
-  token_type: str = "bearer"
+    access_token: str
+    token_type: str = "bearer"
 
 
 class TokenData(BaseModel):
-  email: Optional[str] = None
-  role: Optional[str] = None
+    email: Optional[str] = None
+    role: Optional[str] = None
+
 
 # --- Category Schemas ---
 class CategoryBase(BaseModel):
-  name: str = Field(..., min_length=2, max_length=100)
-  slug: str = Field(..., min_length=2, max_length=100)
+    name: str = Field(..., min_length=2, max_length=100)
+    slug: str = Field(..., min_length=2, max_length=100)
 
 
 class CategoryCreate(CategoryBase):
-  pass
+    pass
 
 
 class CategoryResponse(CategoryBase):
-  id: int
+    id: int
 
-  class Config:
-    from_attributes = True
+    class Config:
+        from_attributes = True
 
 
 # --- Course Schemas ---
 class CourseBase(BaseModel):
-  title: str = Field(..., min_length=3, max_length=255)
-  slug: str = Field(..., min_length=3, max_length=255)
-  description: Optional[str] = None
-  price: float = Field(default=0.0, ge=0.0)
-  category_id: Optional[int] = None
-  thumbnail_url: Optional[str] = None
+    title: str = Field(..., min_length=3, max_length=255)
+    slug: str = Field(..., min_length=3, max_length=255)
+    description: Optional[str] = None
+    price: float = Field(default=0.0, ge=0.0)
+    category_id: Optional[int] = None
+    thumbnail_url: Optional[str] = None
+
 
 class CourseCreate(CourseBase):
-  is_published: Optional[bool] = False
+    is_published: Optional[bool] = False
 
 
 class CourseResponse(CourseBase):
-  id: int
-  is_published: bool
-  instructor_id: int
-  created_at: datetime
-  updated_at: datetime
+    id: int
+    is_published: bool
+    instructor_id: int
+    created_at: datetime
+    updated_at: datetime
 
-  class Config:
-    from_attributes = True
+    class Config:
+        from_attributes = True
+
 
 # --- Lesson Schemas ---
 class LessonBase(BaseModel):
-  title: str = Field(..., min_length=2, max_length=255)
-  video_url: Optional[str] = None
-  content: Optional[str] = None
-  duration_minutes: int = Field(default=0, ge=0)
-  order: int = Field(default=1, ge=1)
-  is_free_preview: bool = False
+    title: str = Field(..., min_length=2, max_length=255)
+    video_url: Optional[str] = None
+    content: Optional[str] = None
+    duration_minutes: int = Field(default=0, ge=0)
+    order: int = Field(default=1, ge=1)
+    is_free_preview: bool = False
 
 
 class LessonCreate(LessonBase):
-  section_id: int
+    section_id: int
 
 
 class LessonResponse(LessonBase):
-  id: int
-  section_id: int
+    id: int
+    section_id: int
 
-  class Config:
-    from_attributes = True
+    class Config:
+        from_attributes = True
 
 
 # --- Section Schemas ---
 class SectionBase(BaseModel):
-  title: str = Field(..., min_length=2, max_length=255)
-  order: int = Field(default=1, ge=1)
+    title: str = Field(..., min_length=2, max_length=255)
+    order: int = Field(default=1, ge=1)
 
 
 class SectionCreate(SectionBase):
-  course_id: int
+    course_id: int
 
 
 class SectionResponse(SectionBase):
-  id: int
-  course_id: int
-  lessons: list[LessonResponse] = []
+    id: int
+    course_id: int
+    lessons: list[LessonResponse] = []
 
-  class Config:
-    from_attributes = True
+    class Config:
+        from_attributes = True
+
 
 # --- Enrollment Schemas ---
 class EnrollmentCreate(BaseModel):
-  course_id: int
+    course_id: int
 
 
 class EnrollmentResponse(BaseModel):
-  id: int
-  user_id: int
-  course_id: int
-  enrolled_at: datetime
+    id: int
+    user_id: int
+    course_id: int
+    enrolled_at: datetime
 
-  class Config:
-    from_attributes = True
+    class Config:
+        from_attributes = True
 
 
 # --- Progress Schemas ---
@@ -147,16 +152,20 @@ class ProgressToggleResponse(BaseModel):
     lesson_id: int
     is_completed: bool
 
-class CourseProgressResponse(BaseModel):
-  course_id: int
-  total_lessons: int
-  completed_lessons: int
-  progress_percentage: float
 
+class CourseProgressResponse(BaseModel):
+    course_id: int
+    total_lessons: int
+    completed_lessons: int
+    progress_percentage: float
+
+
+# --- Review Schemas ---
 class ReviewCreate(BaseModel):
     course_id: int
     rating: int = Field(..., ge=1, le=5)
     comment: Optional[str] = None
+
 
 class ReviewResponse(BaseModel):
     id: int
@@ -169,3 +178,53 @@ class ReviewResponse(BaseModel):
     class Config:
         from_attributes = True
 
+
+# --- Payment & Payout Schemas ---
+
+class CheckoutRequest(BaseModel):
+    course_id: int
+    card_number: str = Field(..., min_length=12, max_length=19)
+    card_holder: str = Field(..., min_length=2)
+    expiry: str = Field(..., min_length=4, max_length=7)
+    cvv: str = Field(..., min_length=3, max_length=4)
+
+
+class TransactionResponse(BaseModel):
+    id: int
+    amount: float
+    instructor_earnings: float
+    platform_fee: float
+    payment_method: str
+    status: str
+    created_at: datetime
+    course_id: int
+    user_id: int
+
+    class Config:
+        from_attributes = True
+
+
+class PayoutRequest(BaseModel):
+    amount: float = Field(..., gt=0.0)
+    payout_method: str = Field(..., min_length=5, max_length=100)
+
+
+class PayoutResponse(BaseModel):
+    id: int
+    amount: float
+    payout_method: str
+    status: str
+    requested_at: datetime
+    instructor_id: int
+
+    class Config:
+        from_attributes = True
+
+
+class InstructorFinancialsResponse(BaseModel):
+    gross_revenue: float
+    instructor_earnings: float
+    total_withdrawn: float
+    available_balance: float
+    transactions: list[TransactionResponse]
+    payouts: list[PayoutResponse]

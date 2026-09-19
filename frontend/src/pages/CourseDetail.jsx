@@ -3,12 +3,12 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { 
   fetchCourseById, 
   fetchCourseCurriculum, 
-  createCheckoutSession, 
   enrollInCourse, 
   fetchMyEnrolledCourses,
   createReview,
   fetchCourseReviews 
 } from '../api/courseApi';
+import CheckoutModal from '../components/course/CheckoutModal';
 import './CourseDetail.css';
 
 const CourseDetail = () => {
@@ -23,6 +23,7 @@ const CourseDetail = () => {
   
   const [isOwner, setIsOwner] = useState(false);
   const [isEnrolled, setIsEnrolled] = useState(false);
+  const [showCheckoutModal, setShowCheckoutModal] = useState(false);
 
   // Review form state
   const [rating, setRating] = useState(5);
@@ -92,24 +93,20 @@ const CourseDetail = () => {
       return;
     }
 
-    setProcessing(true);
-    setError('');
-
-    try {
-      if (course.price === 0) {
+    if (course.price === 0) {
+      // Free course direct enrollment
+      setProcessing(true);
+      setError('');
+      try {
         await enrollInCourse(id);
         navigate('/my-learning');
-      } else {
-        const data = await createCheckoutSession(id);
-        if (data.checkout_url) {
-          window.location.href = data.checkout_url;
-        } else {
-          throw new Error('Failed to generate checkout session.');
-        }
+      } catch (err) {
+        setError(err.message || 'Enrollment failed.');
+        setProcessing(false);
       }
-    } catch (err) {
-      setError(err.message || 'Payment initiation failed.');
-      setProcessing(false);
+    } else {
+      // Paid course triggers checkout modal
+      setShowCheckoutModal(true);
     }
   };
 
@@ -138,6 +135,14 @@ const CourseDetail = () => {
 
   return (
     <div className="course-detail-container">
+      {/* 💳 Payment Checkout Modal */}
+      {showCheckoutModal && (
+        <CheckoutModal
+          course={course}
+          onClose={() => setShowCheckoutModal(false)}
+        />
+      )}
+
       <div className="course-header">
         <h1>{course.title}</h1>
         <p>{course.description || 'Master this course with hands-on practice.'}</p>

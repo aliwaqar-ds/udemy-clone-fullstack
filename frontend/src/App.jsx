@@ -13,6 +13,7 @@ import CreateCourse from './pages/CreateCourse';
 import ManageCurriculum from './pages/ManageCurriculum';
 import PaymentSuccess from './pages/PaymentSuccess';
 import PaymentCancelled from './pages/PaymentCancelled'
+import Financials from './pages/Financials';
 
 const MainLayout = () => (
   <>
@@ -54,6 +55,8 @@ function App() {
 
         <Route path="/payment-success" element={<PaymentSuccess />} />
         <Route path="/payment-cancelled" element={<PaymentCancelled />} />
+
+        <Route path="/instructor/financials" element={<Financials />} />
 
       </Routes>
     </Router>
