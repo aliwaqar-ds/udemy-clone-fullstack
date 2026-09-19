@@ -1,6 +1,6 @@
 # backend/seed_data.py
-from database import SessionLocal
-from models import User, Course, Section, Lesson
+from app.database import SessionLocal
+from app.models import User, Course, Section, Lesson
 from passlib.context import CryptContext
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")

@@ -1,6 +1,6 @@
 # backend/reset_db.py
-from database import SessionLocal, engine
-from models import Transaction, Payout, Review, Progress, Enrollment, Lesson, Section, Course, User
+from app.database import SessionLocal, engine
+from app.models import Transaction, Payout, Review, Progress, Enrollment, Lesson, Section, Course, User
 
 def reset_database():
     db = SessionLocal()
