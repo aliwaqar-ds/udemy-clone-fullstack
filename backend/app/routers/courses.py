@@ -1,10 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from app.database import get_db
 import app.models as models
 import app.schemas as schemas
 from app.routers.auth import get_current_user
+from app.utils import upload_file_to_cloudinary
 from typing import Optional
 
 router = APIRouter(prefix="/api/v1", tags=["Courses & Categories"])
@@ -18,6 +19,20 @@ def require_instructor(current_user: models.User = Depends(get_current_user)):
             detail="Access forbidden. Only instructors or admins can perform this action.",
         )
     return current_user
+
+
+# --- Media Upload Endpoint ---
+
+@router.post("/courses/upload-thumbnail")
+async def upload_course_thumbnail(
+    file: UploadFile = File(...),
+    current_user: models.User = Depends(require_instructor)
+):
+    """
+    Uploads a course thumbnail image to Cloudinary and returns the secure URL.
+    """
+    image_url = await upload_file_to_cloudinary(file, folder="udemy_clone/thumbnails")
+    return {"url": image_url}
 
 
 # --- Category Endpoints ---
@@ -176,7 +191,6 @@ def get_instructor_analytics(
     current_user: models.User = Depends(require_instructor),
     db: Session = Depends(get_db),
 ):
-    # Fetch instructor's courses
     instructor_courses = (
         db.query(models.Course)
         .filter(models.Course.instructor_id == current_user.id)
@@ -193,14 +207,12 @@ def get_instructor_analytics(
             "course_breakdown": [],
         }
 
-    # Total enrollments
     total_students = (
         db.query(models.Enrollment)
         .filter(models.Enrollment.course_id.in_(course_ids))
         .count()
     )
 
-    # Total estimated revenue
     total_revenue = sum(
         c.price
         * db.query(models.Enrollment)
@@ -209,7 +221,6 @@ def get_instructor_analytics(
         for c in instructor_courses
     )
 
-    # Average rating across all reviews
     avg_rating = (
         db.query(func.avg(models.Review.rating))
         .filter(models.Review.course_id.in_(course_ids))
@@ -217,7 +228,6 @@ def get_instructor_analytics(
         or 0.0
     )
 
-    # Course specific metrics breakdown
     breakdown = []
     for course in instructor_courses:
         students_count = (

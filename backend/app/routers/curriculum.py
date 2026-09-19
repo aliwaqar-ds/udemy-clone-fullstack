@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from datetime import datetime
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -6,8 +7,23 @@ import app.models as models
 import app.schemas as schemas
 from app.routers.auth import get_current_user
 from app.routers.courses import require_instructor
+from app.utils import upload_file_to_cloudinary
 
 router = APIRouter(prefix="/api/v1", tags=["Curriculum & Learning"])
+
+
+# --- Media Upload Endpoint ---
+
+@router.post("/lessons/upload-video")
+async def upload_lesson_video(
+    file: UploadFile = File(...),
+    current_user: models.User = Depends(require_instructor)
+):
+    """
+    Uploads a lesson video file to Cloudinary and returns the secure URL.
+    """
+    video_url = await upload_file_to_cloudinary(file, folder="udemy_clone/videos")
+    return {"url": video_url}
 
 
 # --- Section Endpoints ---
@@ -300,8 +316,6 @@ def get_course_progress(
     }
 
 
-from datetime import datetime
-
 @router.get("/courses/{course_id}/certificate")
 def get_course_certificate(
     course_id: int,
@@ -314,7 +328,6 @@ def get_course_certificate(
             status_code=status.HTTP_404_NOT_FOUND, detail="Course not found."
         )
 
-    # Verify student is enrolled
     enrollment = (
         db.query(models.Enrollment)
         .filter(
@@ -329,7 +342,6 @@ def get_course_certificate(
             detail="You must be enrolled in this course to get a certificate.",
         )
 
-    # Check progress
     sections = db.query(models.Section).filter(models.Section.course_id == course_id).all()
     section_ids = [s.id for s in sections]
     lessons = db.query(models.Lesson).filter(models.Lesson.section_id.in_(section_ids)).all()
